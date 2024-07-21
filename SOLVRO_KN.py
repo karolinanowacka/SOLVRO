@@ -1,7 +1,7 @@
 #SOLVRO KN
 import numpy as np
 import pandas as pd
-import torch
+import torch as trch
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -24,32 +24,56 @@ print(f"X_val shape: {X_val.shape}")
 print(f"y_val shape: {y_val.shape}")
 print(f"X_test shape: {X_test.shape}")
 
-#missings check
-#observation: there are no missings in the data
-
-#in training
-X_train_df=pd.DataFrame(X_train.reshape(X_train.shape[0],-1))
-y_train_df=pd.DataFrame(y_train)
-print(f"Missings in X_train: {X_train_df.isnull().sum()}")
-print(f"Missings in y_train: {y_train_df.isnull().sum()}")
-#in validation
-X_val_df=pd.DataFrame(X_val.reshape(X_val.shape[0],-1))
-y_val_df=pd.DataFrame(y_val)
-print(f"Misings in X_val: {X_val_df.isnull().sum()}")
-print(f"Missings in y_val: {y_val_df.isnull().sum()}")
-#in test
-X_test_df=pd.DataFrame(X_test.reshape(X_test.shape[0],-1))
-print(f"Missings in X_test: {X_test_df.isnull().sum()}")
-
-
-#visualization
-#plt.figure(figsize=(12,6))
-#sns.histplot(X_train.flatten(), bins=50, kde=True)
-#plt.title('feature distribution in X_train')
-#plt.xlabel('feature value')
-#plt.ylabel('frequency')
-#plt.show()
-
 #conversion of labels
 y_train_indices=np.argmax(y_train, axis=1)
 y_val_indices=np.argmax(y_val, axis=1)
+
+#missings check
+#training
+X_train_df=pd.DataFrame(X_train.reshape(X_train.shape[0],-1))
+y_train_df=pd.DataFrame(y_train_indices)
+print(f"Missings in X_train: {X_train_df.isnull().sum()}")
+print(f"Missings in y_train: {y_train_df.isnull().sum()}")
+#validation
+X_val_df=pd.DataFrame(X_val.reshape(X_val.shape[0],-1))
+y_val_df=pd.DataFrame(y_val_indices)
+print(f"Misings in X_val: {X_val_df.isnull().sum()}")
+print(f"Missings in y_val: {y_val_df.isnull().sum()}")
+#test
+X_test_df=pd.DataFrame(X_test.reshape(X_test.shape[0],-1))
+print(f"Missings in X_test: {X_test_df.isnull().sum()}")
+#observation: there are no missings in the data
+
+#EDA
+#starting with summary statistics of 1D data 
+#training
+print(f"y_train statistics: {y_train_df.describe()}")
+#validation
+print(f"y_val statistics: {y_val_df.describe()}")
+
+#visualization of 3D data (location of particle over time)
+def plot_trajectories(X, num_samples):
+    for i in range(num_samples):
+        plt.figure(figsize=(10,10))
+        x_coords = X[i, :, 0]
+        y_coords = X[i, :, 1]
+
+        
+        plt.plot(x_coords, y_coords, color='blue', label=f'Sample {i}')
+        plt.scatter(x_coords[0],y_coords[0], color='green', s=50, label='Start', zorder=5)
+        plt.scatter(x_coords[-1],y_coords[-1],color='red',s=50,label='End', zorder=5)
+       
+        plt.title('particle trajectory')
+        plt.xlabel('x coordinate')
+        plt.ylabel('y coordinate')
+        plt.legend()
+        plt.show()
+
+plot_trajectories(X_train, 2)
+
+
+
+
+
+
+

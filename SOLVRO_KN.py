@@ -60,14 +60,14 @@ print(f"duplicates in test data: {num_duplicates_X_test}")
 
 #checking scales and units
 #separating coordinates
-x_coords = X_train[:, :, 0]
+X_coords = X_train[:, :, 0]
 y_coords = X_train[:, :, 1]
 
 #statistics for x
-x_min=np.min(x_coords)
-x_max=np.max(x_coords)
-x_mean=np.mean(x_coords)
-x_std=np.std(x_coords)
+X_min=np.min(X_coords)
+X_max=np.max(X_coords)
+X_mean=np.mean(X_coords)
+X_std=np.std(X_coords)
 
 #statistics for y
 y_min=np.min(y_coords)
@@ -76,9 +76,36 @@ y_mean=np.mean(y_coords)
 y_std=np.std(y_coords)
 
 #debugging
-print(f"X coords statistics: min: {x_min}, max: {x_max}, mean: {x_mean}, std: {x_std}")
+print(f"X coords statistics: min: {X_min}, max: {X_max}, mean: {X_mean}, std: {X_std}")
 print(f"y coords statistics: min: {y_min}, max: {y_max}, mean: {y_mean}, std: {y_std}")
 #observation: no need to perform future scaling- data has the same scales and units
+
+#outlier detection using Z-score and original features (x,y coordinates)
+X_coords_reshaped = X_coords.reshape(X_coords.shape[0],-1)
+y_coords_reshaped = y_coords.reshape(y_coords.shape[0],-1)
+data = np.column_stack((X_coords_reshaped, y_coords_reshaped))
+data_df = pd.DataFrame(data)
+
+z_scores = np.abs( (data_df-data_df.mean()) / data_df.std() )
+outliers = (z_scores > 3).any(axis = 1)
+
+#debugging
+print(f"amount of outliers: {outliers.sum()}")
+#detected 84 outliers
+
+#removing outliers
+data_cleaned = data_df[~outliers]
+X_train_cleaned = X_train[~outliers]
+X_val_cleaned = X_val[~outliers]
+X_test = X_test[~outliers]
+y_train_cleaned = y_train[~outliers]
+y_val_cleaned = y_val[~outliers]
+
+
+
+
+
+
 
 #visualization of 3D data (location of particle over time)
 def plot_trajectories(X, num_samples):

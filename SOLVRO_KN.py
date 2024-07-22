@@ -24,10 +24,6 @@ print(f"X_val shape: {X_val.shape}")
 print(f"y_val shape: {y_val.shape}")
 print(f"X_test shape: {X_test.shape}")
 
-#conversion of labels
-y_train_indices = np.argmax(y_train, axis=1)
-y_val_indices = np.argmax(y_val, axis=1)
-
 #check for missing values
 #training
 print(f"Missing values in X_train: {np.isnan(X_train).sum()}")
@@ -62,14 +58,27 @@ print(f"duplicates in training data: {num_duplicates_X_train}")
 print(f"duplicates in validation data: {num_duplicates_X_val}")
 print(f"duplicates in test data: {num_duplicates_X_test}")
 
-#checking scales and units (histograms)
+#checking scales and units
+#separating coordinates
+x_coords = X_train[:, :, 0]
+y_coords = X_train[:, :, 1]
 
+#statistics for x
+x_min=np.min(x_coords)
+x_max=np.max(x_coords)
+x_mean=np.mean(x_coords)
+x_std=np.std(x_coords)
 
-
+#statistics for y
+y_min=np.min(y_coords)
+y_max=np.max(y_coords)
+y_mean=np.mean(y_coords)
+y_std=np.std(y_coords)
 
 #debugging
-
-
+print(f"X coords statistics: min: {x_min}, max: {x_max}, mean: {x_mean}, std: {x_std}")
+print(f"y coords statistics: min: {y_min}, max: {y_max}, mean: {y_mean}, std: {y_std}")
+#observation: no need to perform future scaling- data has the same scales and units
 
 #visualization of 3D data (location of particle over time)
 def plot_trajectories(X, num_samples):
@@ -91,6 +100,9 @@ def plot_trajectories(X, num_samples):
 
 plot_trajectories(X_train, 1)
 
+#conversion of labels
+y_train_indices = np.argmax(y_train, axis=1)
+y_val_indices = np.argmax(y_val, axis=1)
 
 
 ############expired code

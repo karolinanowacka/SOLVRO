@@ -2,8 +2,12 @@
 import numpy as np
 import pandas as pd
 import torch as torch
+from torch.utils.data import Dataset, DataLoader
+import pytorch_lightning as pl
+import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.preprocessing import StandardScaler
 
 
 #loading training data
@@ -78,7 +82,8 @@ y_std=np.std(y_coords)
 #debugging
 print(f"X coords statistics: min: {X_min}, max: {X_max}, mean: {X_mean}, std: {X_std}")
 print(f"y coords statistics: min: {y_min}, max: {y_max}, mean: {y_mean}, std: {y_std}")
-#observation: no need to perform future scaling- data has the same scales and units
+#observation: data has the same scales and units
+
 
 #outlier detection using Z-score and original features (x,y coordinates)
 X_coords_reshaped = X_coords.reshape(X_coords.shape[0],-1)
@@ -94,16 +99,35 @@ print(f"amount of outliers: {outliers.sum()}")
 #detected 84 outliers
 
 #removing outliers
-data_cleaned = data_df[~outliers]
 X_train_cleaned = X_train[~outliers]
-X_val_cleaned = X_val[~outliers]
-X_test = X_test[~outliers]
 y_train_cleaned = y_train[~outliers]
-y_val_cleaned = y_val[~outliers]
 
+#debugging
+print(f"X_train shape: {X_train_cleaned.shape}")
+print(f"y_train shape: {y_train_cleaned.shape}")
 
+#feature scaling
+scaler = StandardScaler()
+X_train_cleaned_reshaped = X_train_cleaned.reshape(X_train_cleaned.shape[0], -1)
+X_val_reshaped = X_val.reshape(X_val.shape[0], -1)
+scaler.fit(X_train_cleaned_reshaped)
+X_train_cleaned_normalized = scaler.transform(X_train_cleaned_reshaped).reshape(X_train_cleaned.shape)
+X_val_normalized = scaler.transform(X_val_reshaped).reshape(X_val.shape)
 
+#debugging
+print(f"X_train_cleaned_normalized shape: {X_train_cleaned_normalized.shape}")
+print(f"X_val_normalized shape: {X_val_normalized.shape}")
 
+#check for overlapping
+total_samples = X_train.shape[0] + X_val.shape[0] + X_test.shape[0]
+train_idx = set(range(X_train.shape[0]))
+val_idx = set(range(X_train.shape[0], X_train.shape[0]+X_val.shape[0]))
+test_idx = set(range(X_train.shape[0] + X_val.shape[0], total_samples))
+
+#debugging
+assert len(train_idx.intersection(val_idx)) == 0, "found overalapping elements"
+assert len(train_idx.intersection(test_idx)) == 0, "found overalapping elements"
+assert len(val_idx.intersection(test_idx)) == 0, "found overalapping elements"
 
 
 
@@ -130,6 +154,81 @@ plot_trajectories(X_train, 1)
 #conversion of labels
 y_train_indices = np.argmax(y_train, axis=1)
 y_val_indices = np.argmax(y_val, axis=1)
+
+
+#Data Pipeline
+class TrajectoryDataset(Dataset):
+    def __init__(self, data, labels, scaler = None):
+        self.data = data
+        self.labels = labels
+        self.scaler = scaler
+
+        if self.scaler is not None:
+            data_reshaped = self.data.reshape(self.data.shape[0], -1)
+            self.data = self.scaler.transform(data_reshaped).reshape(self.data.shape)
+
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem(self, idx):
+        return torch.tensor(self.data[idx], dtype = torch.float32), torch.tensor(self.labels[idx], dtype = torch.long)
+    
+X_train_cleaned_reshaped = X_train_cleaned.reshape(X_train_cleaned.shape[0], -1)
+X_val_cleaned_reshaped = X_val.reshape(X_val.shape[0], -1)
+
+scaler = StandardScaler()
+scaler.fit(X_train_cleaned_reshaped)
+
+train_dataset = TrajectoryDataset(X_train_cleaned, y_train, scaler = scaler)
+val_dataset = TrajectoryDataset(X_val, y_val, scaler = scaler)
+
+train_loader = DataLoader(train_dataset, batch_size = 64, shuffle = True, num_workers = 4)
+val_loader = DataLoader(val_dataset, batch_size = 64, shuffle = False, num_workers = 4)
+
+#model
+class TrajectoryModel(pl.LightningModule):
+    def __init__(self):
+        super(TrajectoryModel, self).__init__()
+        self.conv1 = torch.nn.Conv1d(in_channels = 2, out_channels = 32, kernel_size = 3, stride = 1, padding = 1)
+        self.conv2 = torch.nn.Conv1d(in_channels = 32, out_channels = 64, kernel_size = 3, stride = 1, padding = 1)
+        self.fc1 = torch.nn.Linear(64*300, 128)
+        self.fc2 = torch.nn.Linear(128, 5)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+    
+    def training_step(self, batch, batch_idx):
+        data, labels = batch
+        outputs = self(data)
+        loss = F.cross_entropy(outputs, labels)
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        data, labels = batch
+        outputs = self(data)
+        loss = F.cross_entropy(outputs, labels)
+        return loss
+    
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr = 0.001)
+        return optimizer
+
+#initialization
+model = TrajectoryModel()
+trainer = pl.Trainer(max_epochs = 10)
+trainer.fit(model, train_loader, val_loader)
+
+
+
+
+
+
+
 
 
 ############expired code
